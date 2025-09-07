@@ -220,7 +220,7 @@ export function SymptomChecker() {
 
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-lg">Nearby Open Hospitals</h3>
+                <h3 className="font-semibold text-lg">Nearby Open Hospitals (Example)</h3>
               </div>
               <div className="space-y-4">
                 {loading && <div className="flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
