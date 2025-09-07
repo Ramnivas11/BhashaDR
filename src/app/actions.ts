@@ -1,6 +1,6 @@
 'use server';
 
-import { translateSymptomsAndSuggestions } from '@/ai/flows/translate-symptoms-and-suggestions';
+import { translateSymptomsAndSuggestions, TranslateSymptomsAndSuggestionsOutput } from '@/ai/flows/translate-symptoms-and-suggestions';
 import { findNearbyHospitals, FindNearbyHospitalsOutput } from '@/ai/flows/find-nearby-hospitals';
 import { z } from 'zod';
 
@@ -10,7 +10,7 @@ const symptomSchema = z.object({
 });
 
 type SymptomState = {
-  suggestions?: string;
+  suggestions?: TranslateSymptomsAndSuggestionsOutput;
   error?: string | null;
 }
 
@@ -29,7 +29,7 @@ export async function getSuggestionsAction(data: z.infer<typeof symptomSchema>):
       symptoms: validatedFields.data.symptoms,
       language: validatedFields.data.language,
     });
-    return { suggestions: result.suggestions, error: null };
+    return { suggestions: result, error: null };
   } catch (e) {
     console.error(e);
     return {

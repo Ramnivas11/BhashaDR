@@ -17,7 +17,8 @@ const TranslateSymptomsAndSuggestionsInputSchema = z.object({
 export type TranslateSymptomsAndSuggestionsInput = z.infer<typeof TranslateSymptomsAndSuggestionsInputSchema>;
 
 const TranslateSymptomsAndSuggestionsOutputSchema = z.object({
-  suggestions: z.string().describe('The AI suggestions translated back to the user\'s native language.'),
+  possibleConditions: z.string().describe('The possible common health issues based on the symptoms, translated to the user\'s language.'),
+  remedies: z.string().describe('Suggested over-the-counter remedies, translated to the user\'s language.'),
 });
 export type TranslateSymptomsAndSuggestionsOutput = z.infer<typeof TranslateSymptomsAndSuggestionsOutputSchema>;
 
@@ -26,13 +27,14 @@ export async function translateSymptomsAndSuggestions(input: TranslateSymptomsAn
 }
 
 const systemPrompt = `You are a friendly medical assistant that helps users in India describe symptoms 
-and get possible common health issues in simple, non-technical words.
+and get possible common health issues and over-the-counter remedies in simple, non-technical words.
 
 Rules:
 - The user will describe their health symptoms.
 - If symptoms are unclear, ask simple follow-up questions.
-- Give only POSSIBLE common conditions (not diagnosis).
-- Always add this disclaimer at the end:
+- Give only POSSIBLE common conditions (not a diagnosis).
+- Suggest only safe, common, over-the-counter remedies. DO NOT provide prescriptions.
+- Always add this disclaimer at the end of your entire response:
   \"⚠️ This is not medical advice. Please consult a doctor for confirmation.\"
 - Keep the explanation short and easy to understand.
 - Reply in the same language as the user’s input.
@@ -43,7 +45,12 @@ const translateSymptomsAndSuggestionsPrompt = ai.definePrompt({
   input: {schema: TranslateSymptomsAndSuggestionsInputSchema},
   output: {schema: TranslateSymptomsAndSuggestionsOutputSchema},
   system: systemPrompt,
-  prompt: `Translate the following symptoms from {{language}} to english: {{{symptoms}}}. Then, based on the english translation of the symptoms, provide possible common health issues. Finally translate the suggestions back to {{language}}.`
+  prompt: `Translate the following symptoms from {{language}} to English: {{{symptoms}}}. 
+Then, based on the English translation, provide:
+1. Possible common health issues.
+2. Safe, over-the-counter remedies for emergency relief.
+
+Finally, translate both the possible conditions and the remedies back to {{language}}.`
 });
 
 const translateSymptomsAndSuggestionsFlow = ai.defineFlow(

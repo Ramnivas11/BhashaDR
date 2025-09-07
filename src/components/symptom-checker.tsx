@@ -6,12 +6,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { getSuggestionsAction, getNearbyHospitalsAction } from "@/app/actions";
 import type { FindNearbyHospitalsOutput } from "@/ai/flows/find-nearby-hospitals";
+import type { TranslateSymptomsAndSuggestionsOutput } from "@/ai/flows/translate-symptoms-and-suggestions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Loader2, Hospital, AlertTriangle } from "lucide-react";
+import { Loader2, Hospital, AlertTriangle, Pill } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
@@ -35,7 +36,7 @@ type SymptomFormValues = z.infer<typeof symptomSchema>;
 type Hospital = FindNearbyHospitalsOutput['hospitals'][0];
 
 export function SymptomChecker() {
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<TranslateSymptomsAndSuggestionsOutput | null>(null);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -193,15 +194,27 @@ export function SymptomChecker() {
             <div>
               <h3 className="font-semibold text-lg mb-2">Possible Conditions</h3>
               <div className="p-4 bg-card rounded-lg border">
-                <p className="text-foreground whitespace-pre-wrap">{result}</p>
+                <p className="text-foreground whitespace-pre-wrap">{result.possibleConditions}</p>
               </div>
             </div>
+
+            {result.remedies && (
+              <div>
+                <h3 className="font-semibold text-lg mb-2 flex items-center gap-2">
+                  <Pill className="h-5 w-5 text-primary" />
+                  Suggested Over-the-Counter Remedies
+                </h3>
+                <div className="p-4 bg-card rounded-lg border">
+                  <p className="text-foreground whitespace-pre-wrap">{result.remedies}</p>
+                </div>
+              </div>
+            )}
             
-            <Alert>
+            <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle className="font-bold">Disclaimer</AlertTitle>
                 <AlertDescription>
-                    This is not medical advice. Please consult a doctor for confirmation.
+                    This is not medical advice. The suggestions are for informational purposes only. Please consult a doctor for a proper diagnosis and treatment.
                 </AlertDescription>
             </Alert>
 
