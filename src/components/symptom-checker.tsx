@@ -10,7 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Loader2, Hospital, AlertTriangle } from "lucide-react";
+import { Loader2, Hospital, AlertTriangle, LocateIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
@@ -40,6 +40,7 @@ type SymptomFormValues = z.infer<typeof symptomSchema>;
 
 export function SymptomChecker() {
   const [result, setResult] = useState<string | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<SymptomFormValues>({
@@ -63,6 +64,40 @@ export function SymptomChecker() {
       });
     } else if (response.suggestions) {
       setResult(response.suggestions);
+    }
+  };
+  
+  const handleLocation = () => {
+    setLocationLoading(true);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          // In a real app, you'd use these coordinates to fetch nearby hospitals from an API.
+          // For now, we'll just show the hardcoded list.
+          console.log("Latitude:", position.coords.latitude, "Longitude:", position.coords.longitude);
+          toast({
+            title: "Location found!",
+            description: "Displaying nearby hospitals.",
+          });
+          setLocationLoading(false);
+        },
+        (error) => {
+          console.error("Geolocation error:", error);
+          toast({
+            variant: "destructive",
+            title: "Location Error",
+            description: "Could not get your location. Please check your browser permissions.",
+          });
+          setLocationLoading(false);
+        }
+      );
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Location Not Supported",
+        description: "Your browser does not support geolocation.",
+      });
+      setLocationLoading(false);
     }
   };
 
@@ -154,7 +189,17 @@ export function SymptomChecker() {
             </Alert>
 
             <div>
-              <h3 className="font-semibold text-lg mb-4">Nearby Hospitals</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-lg">Nearby Hospitals</h3>
+                <Button variant="outline" onClick={handleLocation} disabled={locationLoading}>
+                  {locationLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <LocateIcon className="mr-2 h-4 w-4" />
+                  )}
+                  Use My Location
+                </Button>
+              </div>
               <div className="space-y-4">
                 {hospitals.map((hospital, index) => (
                   <div key={index} className="flex items-start space-x-4 p-4 rounded-lg border bg-card">
