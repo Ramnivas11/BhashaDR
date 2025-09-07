@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Loader2, Hospital, AlertTriangle, LocateIcon } from "lucide-react";
+import { Loader2, Hospital, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
@@ -37,7 +37,7 @@ type Hospital = FindNearbyHospitalsOutput['hospitals'][0];
 export function SymptomChecker() {
   const [result, setResult] = useState<string | null>(null);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
-  const [locationLoading, setLocationLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<SymptomFormValues>({
@@ -50,7 +50,56 @@ export function SymptomChecker() {
 
   const { isSubmitting } = form.formState;
 
+  const handleLocation = async () => {
+    return new Promise<void>((resolve) => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            console.log("Latitude:", position.coords.latitude, "Longitude:", position.coords.longitude);
+            toast({
+              title: "Location found!",
+              description: "Finding nearby open hospitals...",
+            });
+  
+            const response = await getNearbyHospitalsAction({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude
+            });
+  
+            if (response.error) {
+              toast({
+                variant: "destructive",
+                title: "AI Error",
+                description: response.error,
+              });
+            } else if (response.hospitals) {
+              setHospitals(response.hospitals);
+            }
+            resolve();
+          },
+          (error) => {
+            console.error("Geolocation error:", error);
+            toast({
+              variant: "destructive",
+              title: "Location Error",
+              description: "Could not get your location. Please check your browser permissions.",
+            });
+            resolve();
+          }
+        );
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Location Not Supported",
+          description: "Your browser does not support geolocation.",
+        });
+        resolve();
+      }
+    });
+  };
+
   const onSubmit = async (data: SymptomFormValues) => {
+    setLoading(true);
     setResult(null);
     setHospitals([]);
     const response = await getSuggestionsAction(data);
@@ -63,56 +112,11 @@ export function SymptomChecker() {
     } else if (response.suggestions) {
       setResult(response.suggestions);
     }
+
+    await handleLocation();
+    setLoading(false);
   };
   
-  const handleLocation = () => {
-    setLocationLoading(true);
-    setHospitals([]);
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          console.log("Latitude:", position.coords.latitude, "Longitude:", position.coords.longitude);
-          toast({
-            title: "Location found!",
-            description: "Finding nearby open hospitals...",
-          });
-
-          const response = await getNearbyHospitalsAction({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          });
-
-          if (response.error) {
-            toast({
-              variant: "destructive",
-              title: "AI Error",
-              description: response.error,
-            });
-          } else if (response.hospitals) {
-            setHospitals(response.hospitals);
-          }
-          
-          setLocationLoading(false);
-        },
-        (error) => {
-          console.error("Geolocation error:", error);
-          toast({
-            variant: "destructive",
-            title: "Location Error",
-            description: "Could not get your location. Please check your browser permissions.",
-          });
-          setLocationLoading(false);
-        }
-      );
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Location Not Supported",
-        description: "Your browser does not support geolocation.",
-      });
-      setLocationLoading(false);
-    }
-  };
 
   return (
     <div className="w-full max-w-2xl mx-auto space-y-8">
@@ -204,17 +208,9 @@ export function SymptomChecker() {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-lg">Nearby Open Hospitals</h3>
-                <Button variant="outline" onClick={handleLocation} disabled={locationLoading}>
-                  {locationLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <LocateIcon className="mr-2 h-4 w-4" />
-                  )}
-                  Use My Location
-                </Button>
               </div>
               <div className="space-y-4">
-                {locationLoading && <div className="flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
+                {loading && <div className="flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
                 {hospitals.length > 0 ? (
                     hospitals.map((hospital, index) => (
                     <div key={index} className="flex items-start space-x-4 p-4 rounded-lg border bg-card">
@@ -232,7 +228,7 @@ export function SymptomChecker() {
                     </div>
                     ))
                 ) : (
-                    !locationLoading && <p className="text-muted-foreground text-center">Click "Use My Location" to find hospitals near you.</p>
+                    !loading && <p className="text-muted-foreground text-center">Could not find nearby hospitals. Please ensure you have granted location permissions.</p>
                 )}
               </div>
             </div>
