@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { getSuggestionsAction } from "@/app/actions";
+import { getSuggestionsAction, getNearbyHospitalsAction } from "@/app/actions";
+import type { FindNearbyHospitalsOutput } from "@/ai/flows/find-nearby-hospitals";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -25,21 +26,17 @@ const languages = [
   { value: "marathi", label: "मराठी (Marathi)" },
 ];
 
-const hospitals = [
-    { name: "City Hospital", distance: "2.3 km", address: "123 Health St, Downtown" },
-    { name: "Apollo Clinic", distance: "1.5 km", address: "456 Wellness Ave, Uptown" },
-    { name: "Community Medical Center", distance: "5.1 km", address: "789 Care Rd, Suburbia" },
-];
-
 const symptomSchema = z.object({
   symptoms: z.string().min(10, { message: "Please describe your symptoms in at least 10 characters." }),
   language: z.string({ required_error: "Please select a language." }),
 });
 
 type SymptomFormValues = z.infer<typeof symptomSchema>;
+type Hospital = FindNearbyHospitalsOutput['hospitals'][0];
 
 export function SymptomChecker() {
   const [result, setResult] = useState<string | null>(null);
+  const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [locationLoading, setLocationLoading] = useState(false);
   const { toast } = useToast();
 
@@ -55,6 +52,7 @@ export function SymptomChecker() {
 
   const onSubmit = async (data: SymptomFormValues) => {
     setResult(null);
+    setHospitals([]);
     const response = await getSuggestionsAction(data);
     if (response.error) {
       toast({
@@ -69,16 +67,31 @@ export function SymptomChecker() {
   
   const handleLocation = () => {
     setLocationLoading(true);
+    setHospitals([]);
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          // In a real app, you'd use these coordinates to fetch nearby hospitals from an API.
-          // For now, we'll just show the hardcoded list.
+        async (position) => {
           console.log("Latitude:", position.coords.latitude, "Longitude:", position.coords.longitude);
           toast({
             title: "Location found!",
-            description: "Displaying nearby hospitals.",
+            description: "Finding nearby open hospitals...",
           });
+
+          const response = await getNearbyHospitalsAction({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          });
+
+          if (response.error) {
+            toast({
+              variant: "destructive",
+              title: "AI Error",
+              description: response.error,
+            });
+          } else if (response.hospitals) {
+            setHospitals(response.hospitals);
+          }
+          
           setLocationLoading(false);
         },
         (error) => {
@@ -190,7 +203,7 @@ export function SymptomChecker() {
 
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-lg">Nearby Hospitals</h3>
+                <h3 className="font-semibold text-lg">Nearby Open Hospitals</h3>
                 <Button variant="outline" onClick={handleLocation} disabled={locationLoading}>
                   {locationLoading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -201,18 +214,26 @@ export function SymptomChecker() {
                 </Button>
               </div>
               <div className="space-y-4">
-                {hospitals.map((hospital, index) => (
-                  <div key={index} className="flex items-start space-x-4 p-4 rounded-lg border bg-card">
-                    <div className="bg-primary/10 p-3 rounded-full flex-shrink-0">
-                        <Hospital className="h-6 w-6 text-primary" />
+                {locationLoading && <div className="flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
+                {hospitals.length > 0 ? (
+                    hospitals.map((hospital, index) => (
+                    <div key={index} className="flex items-start space-x-4 p-4 rounded-lg border bg-card">
+                        <div className="bg-primary/10 p-3 rounded-full flex-shrink-0">
+                            <Hospital className="h-6 w-6 text-primary" />
+                        </div>
+                        <div className="flex-grow">
+                        <h4 className="font-bold">{hospital.name}</h4>
+                        <p className="text-sm text-muted-foreground">{hospital.address}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                            {hospital.isOpen ? <Badge variant="secondary" className="bg-green-100 text-green-800">Open 24/7</Badge> : <Badge variant="destructive">Closed</Badge>}
+                            {hospital.distance && <Badge variant="outline">{hospital.distance}</Badge>}
+                        </div>
+                        </div>
                     </div>
-                    <div className="flex-grow">
-                      <h4 className="font-bold">{hospital.name}</h4>
-                      <p className="text-sm text-muted-foreground">{hospital.address}</p>
-                      <Badge variant="secondary" className="mt-2">{hospital.distance}</Badge>
-                    </div>
-                  </div>
-                ))}
+                    ))
+                ) : (
+                    !locationLoading && <p className="text-muted-foreground text-center">Click "Use My Location" to find hospitals near you.</p>
+                )}
               </div>
             </div>
           </CardContent>
